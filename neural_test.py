@@ -15,19 +15,16 @@ def tanh(a):
 
 
 class NeuralNetwork():
-    def __init__(self,hidden_layer_sizes = (3,), activation = 'logistic', max_iter = 200, shuffle = True,
+    def __init__(self,hidden_layer_sizes = (2,), activation = 'logistic', max_iter = 200, shuffle = True,
         tol = 1e-4, learning_rate_init = 0.5, power_t = 0.5, verbose = False, momentum = 0.9,
         early_stopping = False, validation_fraction = 0.1):
 
         self.loss_ = 0
         self.n_outputs_ = 0
 
-        # we don't know how many inputs there will be so we can't say how many weights will be needed,
-        # but we can start the list anyways 
         self.coefs_ = None
-        # self.coefs_ = [np.array([[0.15,0.2],[0.25,0.3]]),np.array([[0.4,0.45],[.5,0.55]])]
 
-        self.intercepts_ = np.array([0,0])
+        self.intercepts_ = None
         self.n_iter_ = 0
         self.n_layers_ = len(hidden_layer_sizes) + 2
         if activation == 'logistic':
@@ -53,106 +50,110 @@ class NeuralNetwork():
         # 
 
     def fit(self,X,y):
-        # pdb.set_trace()
-        pdb.set_trace()
-        trial = False
 
-        if not trial:
-            num_features = X.shape[1]
+        num_features = X.shape[1]
 
-            # look at the number of features and randomize the corresponding coefficients
-            # self.coefs_[0] = np.random.random((self.hidden_layer_sizes[0],num_features))*0.01
-            # self.coefs_[0] = np.ones((self.hidden_layer_sizes[0],num_features))*0.01
-
-            deck = np.column_stack((X,y))
-            if self.shuffle:
-                # combine the inputs and outputs into one array
-                np.random.shuffle(deck)
-
-            # split into validation and training sets
-            validation, train = np.vsplit(deck,np.array([int(deck.shape[0] * self.validation_fraction)])) 
-
-            X_val = validation[:,:-1]
-            y_val = validation[:,-1]
-            X_train = train[:,:-1]
-            y_train = train[:,-1]
-
-            if len(y_train.shape) > 1:
-                num_examples = y_train.shape[0]
-                # self.n_outputs_ = y_train.shape[1]
-                self.n_outputs_ = y_train.shape[1]
-            else:
-                num_examples = len(y_train)
-                self.n_outputs_ = 1
-
+        if len(y.shape) > 1:
+            self.n_outputs_ = y.shape[1]
         else:
-            X_train = X
-            y_train = y
-            num_examples = 1
-            self.n_outputs_ = len(y_train)
+            self.n_outputs_ = 1
+
+        # look at the number of features and randomize the corresponding coefficients
+        # self.coefs_[0] = np.random.random((self.hidden_layer_sizes[0],num_features))*0.01
+        # self.coefs_[0] = np.ones((self.hidden_layer_sizes[0],num_features))*0.01
+
+        deck = np.column_stack((X,y))
+        if self.shuffle:
+            # combine the inputs and outputs into one array
+            np.random.shuffle(deck)
+
+        # split into validation and training sets
+        validation, train = np.vsplit(deck,np.array([int(deck.shape[0] * self.validation_fraction)])) 
+        # pdb.set_trace()
+        X_val = validation[:,:-1*self.n_outputs_]
+        y_val = validation[:,-1*self.n_outputs_:]
+        X_train = train[:,:-1*self.n_outputs_]
+        y_train = train[:,-1*self.n_outputs_:]
+
+        if len(y_train.shape) > 1:
+            num_examples = y_train.shape[0]
+        else:
+            num_examples = len(y_train)
 
         rand_limit = 0.1
 
 
-        # set the coefficients
+        # set the coefficients, we need one set for the input layer and a set for each of the 
+        # outputs of the hidden layers
         self.coefs_ = [None]* (len(self.hidden_layer_sizes) + 1) 
+
+        # input layer
         self.coefs_[0] = np.random.random(size=(self.hidden_layer_sizes[0],num_features)) * rand_limit
 
+        # between hidden layers
         for i in range(len(self.hidden_layer_sizes)-1):
             self.coefs_[i+1] = np.random.random(
                 size=(self.hidden_layer_sizes[i+1],self.hidden_layer_sizes[i])
                 ) * rand_limit
 
+        # last hidden layer to output layer
         if self.n_outputs_ > 1:
             self.coefs_[-1] = np.random.random(
                     size=(self.n_outputs_,self.hidden_layer_sizes[-1])
                     ) * rand_limit 
         else:
-            self.coefs_[-1] = np.random.random(self.hidden_layer_sizes[-1]) * rand_limit 
+            self.coefs_[-1] = np.random.random(self.hidden_layer_sizes[-1]) * rand_limit
+
+        # set the intercepts as well
+        self.intercepts_ = [None]* (len(self.hidden_layer_sizes) + 1)
+
+        # one for each of the nodes in the hidden layers
+        for i in range(len(self.hidden_layer_sizes)):
+            self.intercepts_[i] = np.random.random(self.hidden_layer_sizes[i])
+
+        # and one for the number of nodes in the output layer
+        self.intercepts_[-1] = np.random.random(self.n_outputs_)
+
             
 
         # iterate many times over the same train data
         for iteration in range(self.max_iter):
+            # pdb.set_trace()
             # print iteration
             # train using each of the training data
             for i in range(num_examples):
                 # pdb.set_trace()
-                if trial:
-                    o, layer_hs = self.feedforward(X_train)
-                    y_example = y_train
-                else:
-                    o, layer_hs = self.feedforward(X_train[i])
-                    y_example = [y_train[i]]
+                o, layer_hs = self.feedforward(X_train[i])
+                # if len(y_train[i]) < 2:
+                #     y_example = y_train[i]
+                # else:
+                #     y_example = y_train[i]
 
-                self.loss_ = 0
 
-                for j in range (len(o)):
-                    self.loss_ += math.pow(y_example[j] - o[j],2)/2 
+                if self.verbose:
+                    
+                    self.loss_ = np.sum(np.square(y_train[i] - o)/2)
 
-                print self.loss_
+                    print self.loss_
 
                 # with a final output and the outputs of each of the layers, we can alter the weights using back
                 # propogation
+                self.coefs_ =  self.backpropagate(o,layer_hs,X_train[i],y_train[i])
 
-                if trial:
-                    self.coefs_ =  self.backpropagate(o,layer_hs,X_train,y_example)
-                else:
-                    self.coefs_ =  self.backpropagate(o,layer_hs,X_train[i],y_example)
+            # if self.verbose:
+            #     print "0 XOR 0 = {}".format(self.feedforward(np.array([-1,-1]),False))
+            #     print "0 XOR 1 = {}".format(self.feedforward(np.array([-1,1]),False))
+            #     print "1 XOR 0 = {}".format(self.feedforward(np.array([1,-1]),False))
+            #     print "1 XOR 1 = {}\n".format(self.feedforward(np.array([1,1]),False))
+                # check the training error after this training iteration
+            #     train_error = self.check_error(X_train,y_train)
+            # # train_error = self.check_error(X,y)
+            #     # check the validation error after this training iteration
+            #     validation_error = self.check_error(X_val,y_val)
+            # # validation_error = self.check_error(X,y)
 
-
-            # print "0 XOR 0 = {}".format(self.feedforward(np.array([-1,-1]),False))
-            # print "0 XOR 1 = {}".format(self.feedforward(np.array([-1,1]),False))
-            # print "1 XOR 0 = {}".format(self.feedforward(np.array([1,-1]),False))
-            # print "1 XOR 1 = {}\n".format(self.feedforward(np.array([1,1]),False))
-            # check the training error after this training iteration
-            # train_error = self.check_error(X_train,y_train)
-            # train_error = self.check_error(X,y)
-            # check the validation error after this training iteration
-            # validation_error = self.check_error(X_val,y_val)
-            # validation_error = self.check_error(X,y)
-
-            # print "Round {0}:\nTraining error: {1}\nValidation error: {2}\n".format(iteration,
-            #   train_error,validation_error)
+            #     print "Round {0}:\nTraining error: {1}\nValidation error: {2}\n".format(iteration,
+            #       train_error,validation_error)
 
             # self.learning_rate_init /= 2
 
@@ -192,32 +193,6 @@ class NeuralNetwork():
             return [output,l_inputs]
         else:
             return output
-
-    # def feedforward(self,x):
-    #   #pdb.set_trace()
-    #   l_input = x
-
-    #   # move through each of the layers
-    #   for i in range(len(self.hidden_layer_sizes) + 1):
-    #       if i > 0:
-    #           # run the outputs of the previous round (a(x)) through the activation function
-    #           l_input = self.activation_(l_ax)
-
-    #       # take the dot product of the inputs with the weights corresponding to each of the output nodes
-    #       # for example for the input layer with two input features and two hidden nodes in the next layer,
-    #       # this is effectively doing [[[w11,w12],[w21,w22]] dot [x1,x2] + bias1]
-    #       # where w12 is the weight on the second input to the first node in the next layer
-    #       l_ax = np.dot(self.coefs_[i],l_input) + self.intercepts_[i]
-
-    #   hx = self.activation_(l_ax)
-
-    #   if self.n_outputs_ == 1:
-    #       a = self.intercepts_[-1] + np.dot(self.coefs_[-1][0],hx)
-    #       # now we have the input to the output layer, so run it though the output activation functio
-    #       return self.out_activation_(a)[0]
-    #   else:
-    #       a = self.intercepts_[-1] + np.dot(self.coefs_[-1],hx)
-    #       return self.out_activation_(a)
 
     def backpropagate(self, output,layer_inputs, x,y):
 
@@ -282,20 +257,31 @@ class NeuralNetwork():
 
 
     def predict(self,X):
-        pass
+        pdb.set_trace()
+        # make the assumption that there is more than one feature being input into the NN
+        if len(X.shape) == 1:
+            return np.array(self.feedforward(X,False))
+        else:
+            ret = []
+            for x in X:
+                ret.append(self.feedforward(x,False))
+
+            return np.array(ret)
 
 
 if __name__ == "__main__":
     lg = logic_generators.LogicGenerator(False, 0)
     X_train = np.array([[0.05,0.1],[0.05,0.1]])
-    # y = np.array([0.01,0.99])
-    y = np.array([0.01,0.01])
+    y_train = np.array([[0.01,0.99],[0.01,0.99]])
+    # y = np.array([0.01,0.01])
 
-    # X_train, y = lg.XOR(2000)
+    X_train, y_train = lg.XOR(2000)
 
-    nn = NeuralNetwork(max_iter = 10000)
+    nn = NeuralNetwork(max_iter = 10000,verbose =True)
 
     pdb.set_trace()
     
 
-    nn.fit(X_train,y)
+    nn.fit(X_train,y_train)
+
+    print nn.predict(X_train)
