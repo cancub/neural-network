@@ -49,7 +49,7 @@ class LogicGenerator():
 				np.put(x,[i], [1 - random.random() * self.deviation])
 			else:
 				# get the randomized "0"
-				np.put(x,[i], [random.random() * self.deviation])
+				np.put(x,[i], [-1 + random.random() * self.deviation])
 
 		return x
 
@@ -61,7 +61,7 @@ class LogicGenerator():
 				np.put(x,[i], [1 - self.deviation])
 			else:
 				# get the deviated "0"
-				np.put(x,[i], [self.deviation])
+				np.put(x,[i], [-1 + self.deviation])
 
 		return x
 
@@ -71,6 +71,8 @@ class LogicGenerator():
 		x2 = np.random.randint(2,size = count)
 
 		y = np.logical_or(x1,x2).astype(int)
+
+		# y[y<0.5] = -1
 
 		if self.randomized:
 			func = self.get_random_signal
@@ -95,6 +97,7 @@ class LogicGenerator():
 		x2 = np.random.randint(2,size = count)
 
 		y = np.logical_and(x1,x2).astype(int)
+		# y[y<0.5] = -1
 
 		if self.randomized:
 			func = self.get_random_signal
@@ -122,6 +125,8 @@ class LogicGenerator():
 		x2 = np.random.randint(2,size = count)
 
 		y = np.logical_and(np.logical_or(x1,x2),np.logical_not(np.logical_and(x1,x2))).astype(int)
+
+		# y[y<0.5] = -1
 
 		if self.randomized:
 			func = self.get_random_signal
