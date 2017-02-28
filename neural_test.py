@@ -15,7 +15,7 @@ def tanh(a):
 
 
 class NeuralNetwork():
-    def __init__(self,hidden_layer_sizes = (2,), activation = 'logistic', max_iter = 200, shuffle = True,
+    def __init__(self,hidden_layer_sizes = (3,), activation = 'logistic', max_iter = 200, shuffle = True,
         tol = 1e-4, learning_rate_init = 0.5, power_t = 0.5, verbose = False, momentum = 0.9,
         early_stopping = False, validation_fraction = 0.1):
 
@@ -24,10 +24,10 @@ class NeuralNetwork():
 
         # we don't know how many inputs there will be so we can't say how many weights will be needed,
         # but we can start the list anyways 
-        self.coefs_ = [np.array([[0.15,0.2],[0.25,0.3]]),np.array([0.4,0.45])]
-        self.coefs_ = [np.array([[0.15,0.2],[0.25,0.3]]),np.array([[0.4,0.45],[.5,0.55]])]
+        self.coefs_ = None
+        # self.coefs_ = [np.array([[0.15,0.2],[0.25,0.3]]),np.array([[0.4,0.45],[.5,0.55]])]
 
-        self.intercepts_ = np.array([0.35,0.60])
+        self.intercepts_ = np.array([0,0])
         self.n_iter_ = 0
         self.n_layers_ = len(hidden_layer_sizes) + 2
         if activation == 'logistic':
@@ -55,14 +55,14 @@ class NeuralNetwork():
     def fit(self,X,y):
         # pdb.set_trace()
         pdb.set_trace()
-        trial = True
+        trial = False
 
         if not trial:
-            input_size = X.shape[1]
+            num_features = X.shape[1]
 
             # look at the number of features and randomize the corresponding coefficients
-            # self.coefs_[0] = np.random.random((self.hidden_layer_sizes[0],input_size))*0.01
-            # self.coefs_[0] = np.ones((self.hidden_layer_sizes[0],input_size))*0.01
+            # self.coefs_[0] = np.random.random((self.hidden_layer_sizes[0],num_features))*0.01
+            # self.coefs_[0] = np.ones((self.hidden_layer_sizes[0],num_features))*0.01
 
             deck = np.column_stack((X,y))
             if self.shuffle:
@@ -81,20 +81,42 @@ class NeuralNetwork():
                 num_examples = y_train.shape[0]
                 # self.n_outputs_ = y_train.shape[1]
                 self.n_outputs_ = y_train.shape[1]
+            else:
+                num_examples = len(y_train)
+                self.n_outputs_ = 1
 
         else:
             X_train = X
             y_train = y
             num_examples = 1
             self.n_outputs_ = len(y_train)
+
+        rand_limit = 0.1
+
+
+        # set the coefficients
+        self.coefs_ = [None]* (len(self.hidden_layer_sizes) + 1) 
+        self.coefs_[0] = np.random.random(size=(self.hidden_layer_sizes[0],num_features)) * rand_limit
+
+        for i in range(len(self.hidden_layer_sizes)-1):
+            self.coefs_[i+1] = np.random.random(
+                size=(self.hidden_layer_sizes[i+1],self.hidden_layer_sizes[i])
+                ) * rand_limit
+
+        if self.n_outputs_ > 1:
+            self.coefs_[-1] = np.random.random(
+                    size=(self.n_outputs_,self.hidden_layer_sizes[-1])
+                    ) * rand_limit 
+        else:
+            self.coefs_[-1] = np.random.random(self.hidden_layer_sizes[-1]) * rand_limit 
             
 
         # iterate many times over the same train data
         for iteration in range(self.max_iter):
             # print iteration
             # train using each of the training data
-            # pdb.set_trace()
             for i in range(num_examples):
+                # pdb.set_trace()
                 if trial:
                     o, layer_hs = self.feedforward(X_train)
                     y_example = y_train
@@ -118,6 +140,10 @@ class NeuralNetwork():
                     self.coefs_ =  self.backpropagate(o,layer_hs,X_train[i],y_example)
 
 
+            # print "0 XOR 0 = {}".format(self.feedforward(np.array([-1,-1]),False))
+            # print "0 XOR 1 = {}".format(self.feedforward(np.array([-1,1]),False))
+            # print "1 XOR 0 = {}".format(self.feedforward(np.array([1,-1]),False))
+            # print "1 XOR 1 = {}\n".format(self.feedforward(np.array([1,1]),False))
             # check the training error after this training iteration
             # train_error = self.check_error(X_train,y_train)
             # train_error = self.check_error(X,y)
@@ -228,7 +254,7 @@ class NeuralNetwork():
         if len(output_deltas) > 1:
             sum_d_E_total_wrt_layer_output = np.dot(np.transpose(self.coefs_[-1]),output_deltas)
         else:
-            sum_d_E_total_wrt_layer_output = np.dot(self.coefs_[-1],np.repeat(output_deltas,len(self.coefs_[-1])))
+            sum_d_E_total_wrt_layer_output = np.multiply(self.coefs_[-1],output_deltas)
 
         d_layer_outputs_wrt_all_layer_inputs = np.multiply(layer_inputs[-1],1-layer_inputs[-1])
         layer_deltas = np.multiply(sum_d_E_total_wrt_layer_output,d_layer_outputs_wrt_all_layer_inputs)
@@ -261,8 +287,9 @@ class NeuralNetwork():
 
 if __name__ == "__main__":
     lg = logic_generators.LogicGenerator(False, 0)
-    X_train = np.array([0.05,0.1])
-    y = np.array([0.01,0.99])
+    X_train = np.array([[0.05,0.1],[0.05,0.1]])
+    # y = np.array([0.01,0.99])
+    y = np.array([0.01,0.01])
 
     # X_train, y = lg.XOR(2000)
 
